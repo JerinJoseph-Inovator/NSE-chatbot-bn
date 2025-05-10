@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+ENV/
+env/
+
+# Environment variables
+.env
+
+# VS Code settings (optional)
+.vscode/
+
+# Distribution / packaging
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Installer files
+*.exe
+
+# Test results
+*.log
+*.out
+
+# Ignore checkpoint files if not needed
+*Checkpoint*
+
+# System files
+.DS_Store
+Thumbs.db
