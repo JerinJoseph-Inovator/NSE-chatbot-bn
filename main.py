@@ -50,10 +50,10 @@ def query_llm(prompt: str) -> str:
             headers = {
                 "Authorization": f"Bearer {LLM_API_KEY}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": LLM_REFERER
+                "Referer": LLM_REFERER   # FIXED here
             }
             payload = {
-                "model": "mistral-7b-instruct",
+                "model": MODEL_NAME,   # use env variable
                 "messages": [
                     {"role": "system", "content": "You are an intelligent assistant from the National Stock Exchange of India (NSE)."},
                     {"role": "user", "content": prompt}
