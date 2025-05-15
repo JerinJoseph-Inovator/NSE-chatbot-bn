@@ -7,15 +7,34 @@ from dotenv import load_dotenv
 import re
 from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse
+from fastapi.responses import PlainTextResponse
 
+# Load environment variables
+load_dotenv()
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 MODEL_NAME = os.getenv("MODEL_NAME", "mistral")
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 LLM_API_URL = os.getenv("LLM_API_URL", "https://openrouter.ai/api/v1/chat/completions")
 LLM_REFERER = os.getenv("LLM_REFERER", "https://yourdomain.com")
+USE_LOCAL_LLM = os.getenv("USE_LOCAL_LLM", "true").lower() == "true"
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
-def query_llm(prompt: str, is_local: bool = False) -> str:
-    if is_local:
+# FastAPI App
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def log(msg): print(f"[LOG] {msg}")
+
+# Query LLM
+def query_llm(prompt: str) -> str:
+    if USE_LOCAL_LLM:
         try:
             res = requests.post(
                 OLLAMA_URL,
@@ -23,32 +42,29 @@ def query_llm(prompt: str, is_local: bool = False) -> str:
                 timeout=8
             )
             res.raise_for_status()
-            data = res.json()
-            return data.get("response", "[⚠️ No response from Ollama]")
+            return res.json().get("response", "[⚠️ No response from Ollama]")
         except Exception as e:
-            print(f"⚠️ Ollama error: {e}")
-
-    # fallback to OpenRouter
-    try:
-        headers = {
-            "Authorization": f"Bearer {LLM_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": LLM_REFERER
-        }
-        payload = {
-            "model": "mistral-7b-instruct",  # You can change to mistral-large if needed
-            "messages": [
-                {"role": "system", "content": "You are an intelligent assistant from the National Stock Exchange of India (NSE)."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.7
-        }
-        ext_res = requests.post(LLM_API_URL, json=payload, headers=headers, timeout=10)
-        ext_res.raise_for_status()
-        data = ext_res.json()
-        return data["choices"][0]["message"]["content"]
-    except Exception as e:
-        return f"⚠️ External LLM error: {e}"
+            return f"⚠️ Ollama error: {e}"
+    else:
+        try:
+            headers = {
+                "Authorization": f"Bearer {LLM_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": LLM_REFERER
+            }
+            payload = {
+                "model": "mistral-7b-instruct",
+                "messages": [
+                    {"role": "system", "content": "You are an intelligent assistant from the National Stock Exchange of India (NSE)."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.7
+            }
+            res = requests.post(LLM_API_URL, json=payload, headers=headers, timeout=10)
+            res.raise_for_status()
+            return res.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            return f"⚠️ External LLM error: {e}"
 
 # Load .env
 load_dotenv()
@@ -266,7 +282,7 @@ async def chat(request: Request):
 
         symbol = extract_stock_symbol(user_input)
 
-        # Routing
+        # Routes
         if "fundamentals" in user_input:
             return JSONResponse(content={"reply": get_fundamentals(symbol)})
         if "chart" in user_input or "historical" in user_input:
@@ -281,21 +297,15 @@ async def chat(request: Request):
             return JSONResponse(content={"reply": get_stock_price(symbol)})
 
         # Fallback to LLM
-        # Fallback to LLM with auto fallback logic
         prompt = (
             "You are an intelligent assistant from the National Stock Exchange of India (NSE). "
             "Answer factually and concisely about Indian stocks, indices, regulations, and financial data.\n"
             f"User: {user_input}\nAssistant:"
         )
-
-        llm_response = query_llm(prompt, is_local=True)
-        return JSONResponse(content={"reply": llm_response or "⚠️ Unable to get a response from the stock assistant."})
-
+        response = query_llm(prompt)
+        return JSONResponse(content={"reply": response})
     except Exception as e:
         return JSONResponse(content={"reply": f"⚠️ NSE backend error: {str(e)}"})
-
-
-from fastapi.responses import PlainTextResponse
 
 @app.get("/health")
 async def health_check():
