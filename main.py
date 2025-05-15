@@ -12,7 +12,7 @@ from fastapi.responses import PlainTextResponse
 # Load environment variables
 load_dotenv()
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
-MODEL_NAME = os.getenv("MODEL_NAME", "mistral")
+MODEL_NAME = os.getenv("MODEL_NAME", "mistralai/mistral-7b-instruct:free")
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 LLM_API_URL = os.getenv("LLM_API_URL", "https://openrouter.ai/api/v1/chat/completions")
 LLM_REFERER = os.getenv("LLM_REFERER", "https://yourdomain.com")
@@ -50,10 +50,10 @@ def query_llm(prompt: str) -> str:
             headers = {
                 "Authorization": f"Bearer {LLM_API_KEY}",
                 "Content-Type": "application/json",
-                "Referer": LLM_REFERER   # FIXED here
+                "Referer": LLM_REFERER  # ✅ Must be 'Referer'
             }
             payload = {
-                "model": MODEL_NAME,   # use env variable
+                "model": MODEL_NAME,  # ✅ Must match OpenRouter's expected model ID
                 "messages": [
                     {"role": "system", "content": "You are an intelligent assistant from the National Stock Exchange of India (NSE)."},
                     {"role": "user", "content": prompt}
@@ -63,8 +63,9 @@ def query_llm(prompt: str) -> str:
             res = requests.post(LLM_API_URL, json=payload, headers=headers, timeout=10)
             res.raise_for_status()
             return res.json()["choices"][0]["message"]["content"]
-        except Exception as e:
-            return f"⚠️ External LLM error: {e}"
+        except requests.exceptions.RequestException as e:
+            return f"⚠️ External LLM error: {e}\n\nPayload: {payload}"
+
 
 # Load .env
 load_dotenv()
