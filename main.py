@@ -82,8 +82,6 @@ def get_historical_prices(symbol: str):
         return f"Error fetching historical data: {str(e)}"
 
 # ------- GAINERS / LOSERS --------
-import yfinance as yf
-
 def get_top_gainers():
     try:
         # Define a curated list of Nifty 50 stock symbols
